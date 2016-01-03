@@ -80,11 +80,11 @@ uploadArchives {
     mavenDeployer {
       configuration = configurations.archives
 
-      repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
+      repository(url: "http://forge.blue-mind.net/nexus/content/repositories/releases") {
         authentication(userName: sonatypeUsername, password: sonatypePassword)
       }
 
-      snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
+      snapshotRepository(url: "http://forge.blue-mind.net/nexus/content/repositories/snapshots") {
         authentication(userName: sonatypeUsername, password: sonatypePassword)
       }
 
