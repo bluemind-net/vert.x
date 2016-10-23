@@ -27,7 +27,7 @@ public class VertxThreadFactory implements ThreadFactory {
   private final String prefix;
   private final AtomicInteger threadCount = new AtomicInteger(0);
 
-  VertxThreadFactory(String prefix) {
+  public VertxThreadFactory(String prefix) {
     this.prefix = prefix;
   }
 
