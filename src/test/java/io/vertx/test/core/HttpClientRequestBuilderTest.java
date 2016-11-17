@@ -1,6 +1,7 @@
 package io.vertx.test.core;
 
 import io.vertx.core.Handler;
+import io.vertx.core.VertxException;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.file.AsyncFile;
 import io.vertx.core.file.OpenOptions;
@@ -316,6 +317,20 @@ public class HttpClientRequestBuilderTest extends HttpTestBase {
     HttpClientRequestBuilder get = client.createGet(DEFAULT_HTTP_PORT, DEFAULT_HTTP_HOST, "/somepath");
     get.asJsonObject().send(onFailure(err -> {
       assertTrue(err instanceof DecodeException);
+      testComplete();
+    }));
+    await();
+  }
+
+  @Test
+  public void testHttpResponseError() throws Exception {
+    server.requestHandler(req -> {
+      req.response().setChunked(true).write(Buffer.buffer("some-data")).close();
+    });
+    startServer();
+    HttpClientRequestBuilder get = client.createGet(DEFAULT_HTTP_PORT, DEFAULT_HTTP_HOST, "/somepath");
+    get.asJsonObject().send(onFailure(err -> {
+      assertTrue(err instanceof VertxException);
       testComplete();
     }));
     await();

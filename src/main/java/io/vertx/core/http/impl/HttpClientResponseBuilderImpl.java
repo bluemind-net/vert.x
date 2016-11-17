@@ -42,54 +42,63 @@ class HttpClientResponseBuilderImpl<T> implements HttpClientResponseBuilder<T> {
     this.bodyUnmarshaller = bodyUnmarshaller;
   }
 
-  private Handler<AsyncResult<HttpClientResponse>> createClientResponseHandler(Handler<AsyncResult<HttpResponse<T>>> handler) {
+  private Handler<AsyncResult<HttpClientResponse>> createClientResponseHandler(Future<HttpResponse<T>> fut) {
     return ar -> {
       if (ar.succeeded()) {
         HttpClientResponse resp = ar.result();
+        resp.exceptionHandler(err -> {
+          if (!fut.isComplete()) {
+            fut.fail(err);
+          }
+        });
         resp.bodyHandler(buff -> {
           T body;
           try {
             body = bodyUnmarshaller.apply(buff);
           } catch (Throwable err) {
-            handler.handle(Future.failedFuture(err));
+            if (!fut.failed()) {
+              fut.fail(err);
+            }
             return;
           }
-          handler.handle(Future.succeededFuture(new HttpResponse<T>() {
-            @Override
-            public HttpVersion version() {
-              return resp.version();
-            }
-            @Override
-            public int statusCode() {
-              return resp.statusCode();
-            }
-            @Override
-            public String statusMessage() {
-              return resp.statusMessage();
-            }
-            @Override
-            public MultiMap headers() {
-              return resp.headers();
-            }
-            @Override
-            public T body() {
-              return body;
-            }
-          }));
+          if (!fut.failed()) {
+            fut.complete(new HttpResponse<T>() {
+              @Override
+              public HttpVersion version() {
+                return resp.version();
+              }
+              @Override
+              public int statusCode() {
+                return resp.statusCode();
+              }
+              @Override
+              public String statusMessage() {
+                return resp.statusMessage();
+              }
+              @Override
+              public MultiMap headers() {
+                return resp.headers();
+              }
+              @Override
+              public T body() {
+                return body;
+              }
+            });
+          }
         });
       } else {
-        handler.handle(Future.failedFuture(ar.cause()));
+        fut.fail(ar.cause());
       }
     };
   }
 
   @Override
   public void send(ReadStream<Buffer> stream, Handler<AsyncResult<HttpResponse<T>>> handler) {
-    requestBuilder.send(stream, createClientResponseHandler(handler));
+    requestBuilder.send(stream, createClientResponseHandler(Future.<HttpResponse<T>>future().setHandler(handler)));
   }
 
   @Override
   public void send(Handler<AsyncResult<HttpResponse<T>>> handler) {
-    requestBuilder.send(createClientResponseHandler(handler));
+    requestBuilder.send(createClientResponseHandler(Future.<HttpResponse<T>>future().setHandler(handler)));
   }
 }
