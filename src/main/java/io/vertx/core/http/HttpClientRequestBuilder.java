@@ -39,12 +39,6 @@ public interface HttpClientRequestBuilder {
 
   void send(Handler<AsyncResult<HttpClientResponse>> handler);
 
-  HttpClientResponseBuilder<Buffer> asBuffer();
-
-  HttpClientResponseBuilder<String> asString();
-
-  HttpClientResponseBuilder<JsonObject> asJsonObject();
-
-  <T> HttpClientResponseBuilder<T> as(Class<T> clazz);
+  HttpClientResponseBuilder<Buffer> bufferBody();
 
 }

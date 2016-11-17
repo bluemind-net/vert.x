@@ -300,7 +300,7 @@ public class HttpClientRequestBuilderTest extends HttpTestBase {
     });
     startServer();
     HttpClientRequestBuilder get = client.createGet(DEFAULT_HTTP_PORT, DEFAULT_HTTP_HOST, "/somepath");
-    get.asJsonObject().send(onSuccess(resp -> {
+    get.bufferBody().asJsonObject().send(onSuccess(resp -> {
       assertEquals(200, resp.statusCode());
       assertEquals(expected, resp.body());
       testComplete();
@@ -315,7 +315,7 @@ public class HttpClientRequestBuilderTest extends HttpTestBase {
     });
     startServer();
     HttpClientRequestBuilder get = client.createGet(DEFAULT_HTTP_PORT, DEFAULT_HTTP_HOST, "/somepath");
-    get.asJsonObject().send(onFailure(err -> {
+    get.bufferBody().asJsonObject().send(onFailure(err -> {
       assertTrue(err instanceof DecodeException);
       testComplete();
     }));
@@ -329,7 +329,7 @@ public class HttpClientRequestBuilderTest extends HttpTestBase {
     });
     startServer();
     HttpClientRequestBuilder get = client.createGet(DEFAULT_HTTP_PORT, DEFAULT_HTTP_HOST, "/somepath");
-    get.asJsonObject().send(onFailure(err -> {
+    get.bufferBody().asJsonObject().send(onFailure(err -> {
       assertTrue(err instanceof VertxException);
       testComplete();
     }));

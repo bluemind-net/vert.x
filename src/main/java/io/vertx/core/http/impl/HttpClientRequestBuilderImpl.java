@@ -146,22 +146,7 @@ class HttpClientRequestBuilderImpl implements HttpClientRequestBuilder {
   }
 
   @Override
-  public HttpClientResponseBuilder<Buffer> asBuffer() {
+  public HttpClientResponseBuilder<Buffer> bufferBody() {
     return new HttpClientResponseBuilderImpl<>(this, Function.identity());
-  }
-
-  @Override
-  public HttpClientResponseBuilder<String> asString() {
-    return new HttpClientResponseBuilderImpl<>(this, Buffer::toString);
-  }
-
-  @Override
-  public HttpClientResponseBuilder<JsonObject> asJsonObject() {
-    return new HttpClientResponseBuilderImpl<>(this, buff -> new JsonObject(buff.toString()));
-  }
-
-  @Override
-  public <T> HttpClientResponseBuilder<T> as(Class<T> clazz) {
-    throw new UnsupportedOperationException();
   }
 }

@@ -25,6 +25,7 @@ import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpClientResponseBuilder;
 import io.vertx.core.http.HttpResponse;
 import io.vertx.core.http.HttpVersion;
+import io.vertx.core.json.JsonObject;
 import io.vertx.core.streams.ReadStream;
 
 import java.util.function.Function;
@@ -40,6 +41,21 @@ class HttpClientResponseBuilderImpl<T> implements HttpClientResponseBuilder<T> {
   HttpClientResponseBuilderImpl(HttpClientRequestBuilder requestBuilder, Function<Buffer, T> bodyUnmarshaller) {
     this.requestBuilder = requestBuilder;
     this.bodyUnmarshaller = bodyUnmarshaller;
+  }
+
+  @Override
+  public HttpClientResponseBuilder<String> asString() {
+    return new HttpClientResponseBuilderImpl<>(requestBuilder, Buffer::toString);
+  }
+
+  @Override
+  public HttpClientResponseBuilder<JsonObject> asJsonObject() {
+    return new HttpClientResponseBuilderImpl<>(requestBuilder, buff -> new JsonObject(buff.toString()));
+  }
+
+  @Override
+  public <T> HttpClientResponseBuilder<T> as(Class<T> clazz) {
+    throw new UnsupportedOperationException();
   }
 
   private Handler<AsyncResult<HttpClientResponse>> createClientResponseHandler(Future<HttpResponse<T>> fut) {
