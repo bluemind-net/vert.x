@@ -31,6 +31,10 @@ public interface HttpClientRequestBuilder {
   // Observable<Buffer> fileObs = fileSystem.open("file.txt", new OpenOptions());
   // Observable<HttpClientResponse> respObs = httpClient.createPost().send(fileObs);
   // respObs.subscribe(resp -> {});
+
+  // the idea is that when calling a method with an Observable, the original method should be called
+  // with a subscription
+  // as the Handler<AsyncResult> delays the call (on subscribe) it should work
   void send(ReadStream<Buffer> stream, Handler<AsyncResult<HttpClientResponse>> handler);
 
   void send(Handler<AsyncResult<HttpClientResponse>> handler);
