@@ -190,7 +190,7 @@ class ServerConnection extends ConnectionBase {
         requestHandler.handle(req);
       }
     } catch (Throwable t) {
-      handleHandlerException(t);
+    	handleException(t);
     }
   }
 
@@ -199,7 +199,7 @@ class ServerConnection extends ConnectionBase {
       setContext();
       currentRequest.handleData(chunk);
     } catch (Throwable t) {
-      handleHandlerException(t);
+    	handleException(t);
     }
   }
 
@@ -209,7 +209,7 @@ class ServerConnection extends ConnectionBase {
       currentRequest.handleEnd();
       currentRequest = null;
     } catch (Throwable t) {
-      handleHandlerException(t);
+    	handleException(t);
     }
   }
 
