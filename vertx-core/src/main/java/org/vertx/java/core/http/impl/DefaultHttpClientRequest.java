@@ -316,6 +316,7 @@ public class DefaultHttpClientRequest implements HttpClientRequest {
   }
 
   private void timeout(long timeoutMs) {
+    conn.close();
     handleException(new TimeoutException("The timeout period of " + timeoutMs + "ms has been exceeded"));
   }
 
