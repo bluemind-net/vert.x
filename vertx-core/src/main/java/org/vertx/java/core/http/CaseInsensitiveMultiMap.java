@@ -16,413 +16,430 @@
 
 package org.vertx.java.core.http;
 
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.function.Consumer;
 
 import org.vertx.java.core.MultiMap;
 
-import java.util.*;
-
 /**
- * This multi-map implementation has case insensitive keys, and can be used to hold some HTTP headers
- * prior to making an HTTP request.
+ * This multi-map implementation has case insensitive keys, and can be used to
+ * hold some HTTP headers prior to making an HTTP request.
  *
  * @author <a href="mailto:nmaurer@redhat.com">Norman Maurer</a>
  */
 public final class CaseInsensitiveMultiMap implements MultiMap {
-  private static final int BUCKET_SIZE = 17;
+	private static final int BUCKET_SIZE = 17;
 
-  private static int hash(String name) {
-    int h = 0;
-    for (int i = name.length() - 1; i >= 0; i --) {
-      char c = name.charAt(i);
-      if (c >= 'A' && c <= 'Z') {
-        c += 32;
-      }
-      h = 31 * h + c;
-    }
+	private static int hash(String name) {
+		int h = 0;
+		for (int i = name.length() - 1; i >= 0; i--) {
+			char c = name.charAt(i);
+			if (c >= 'A' && c <= 'Z') {
+				c += 32;
+			}
+			h = 31 * h + c;
+		}
 
-    if (h > 0) {
-      return h;
-    } else if (h == Integer.MIN_VALUE) {
-      return Integer.MAX_VALUE;
-    } else {
-      return -h;
-    }
-  }
+		if (h > 0) {
+			return h;
+		} else if (h == Integer.MIN_VALUE) {
+			return Integer.MAX_VALUE;
+		} else {
+			return -h;
+		}
+	}
 
-  private MultiMap set0(Iterable<Map.Entry<String, String>> map) {
-    clear();
-    for (Map.Entry<String, String> entry: map) {
-      add(entry.getKey(), entry.getValue());
-    }
-    return this;
-  }
+	public void forEachEntries(Consumer<Map.Entry<String, String>> cons) {
+		MapEntry e = head.after;
+		while (e != head) {
+			cons.accept(e);
+			e = e.after;
+		}
+	}
 
-  @Override
-  public MultiMap set(MultiMap headers) {
-    return set0(headers);
-  }
+	private MultiMap set0(Iterable<Map.Entry<String, String>> map) {
+		clear();
+		for (Map.Entry<String, String> entry : map) {
+			add(entry.getKey(), entry.getValue());
+		}
+		return this;
+	}
 
-  @Override
-  public MultiMap set(Map<String, String> headers) {
-    return set0(headers.entrySet());
-  }
+	@Override
+	public MultiMap set(MultiMap headers) {
+		return set0(headers);
+	}
 
-  @Override
-  public int size() {
-    return names().size();
-  }
+	@Override
+	public MultiMap set(Map<String, String> headers) {
+		return set0(headers.entrySet());
+	}
 
-  private static boolean eq(String name1, String name2) {
-    int nameLen = name1.length();
-    if (nameLen != name2.length()) {
-      return false;
-    }
+	@Override
+	public int size() {
+		return names().size();
+	}
 
-    for (int i = nameLen - 1; i >= 0; i --) {
-      char c1 = name1.charAt(i);
-      char c2 = name2.charAt(i);
-      if (c1 != c2) {
-        if (c1 >= 'A' && c1 <= 'Z') {
-          c1 += 32;
-        }
-        if (c2 >= 'A' && c2 <= 'Z') {
-          c2 += 32;
-        }
-        if (c1 != c2) {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
+	private static boolean eq(String name1, String name2) {
+		int nameLen = name1.length();
+		if (nameLen != name2.length()) {
+			return false;
+		}
 
-  private static int index(int hash) {
-    return hash % BUCKET_SIZE;
-  }
+		for (int i = nameLen - 1; i >= 0; i--) {
+			char c1 = name1.charAt(i);
+			char c2 = name2.charAt(i);
+			if (c1 != c2) {
+				if (c1 >= 'A' && c1 <= 'Z') {
+					c1 += 32;
+				}
+				if (c2 >= 'A' && c2 <= 'Z') {
+					c2 += 32;
+				}
+				if (c1 != c2) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
 
-  private final MapEntry[] entries = new MapEntry[BUCKET_SIZE];
-  private final MapEntry head = new MapEntry(-1, null, null);
+	private static int index(int hash) {
+		return hash % BUCKET_SIZE;
+	}
 
-  public CaseInsensitiveMultiMap() {
-    head.before = head.after = head;
-  }
+	private final MapEntry[] entries = new MapEntry[BUCKET_SIZE];
+	private final MapEntry head = new MapEntry(-1, null, null);
 
-  @Override
-  public MultiMap add(final String name, final String strVal) {
-    int h = hash(name);
-    int i = index(h);
-    add0(h, i, name, strVal);
-    return this;
-  }
+	public CaseInsensitiveMultiMap() {
+		head.before = head.after = head;
+	}
 
-  @Override
-  public MultiMap add(String name, Iterable<String> values) {
-    int h = hash(name);
-    int i = index(h);
-    for (String vstr: values) {
-      add0(h, i, name, vstr);
-    }
-    return this;
-  }
+	@Override
+	public MultiMap add(final String name, final String strVal) {
+		int h = hash(name);
+		int i = index(h);
+		add0(h, i, name, strVal);
+		return this;
+	}
 
-  @Override
-  public MultiMap add(MultiMap headers) {
-    for (Map.Entry<String, String> entry: headers.entries()) {
-      add(entry.getKey(), entry.getValue());
-    }
-    return this;
-  }
+	@Override
+	public MultiMap add(String name, Iterable<String> values) {
+		int h = hash(name);
+		int i = index(h);
+		for (String vstr : values) {
+			add0(h, i, name, vstr);
+		}
+		return this;
+	}
 
-  @Override
-  public MultiMap add(Map<String, String> map) {
-    for (Map.Entry<String, String> entry: map.entrySet()) {
-      add(entry.getKey(), entry.getValue());
-    }
-    return this;
-  }
+	@Override
+	public MultiMap add(MultiMap headers) {
+		headers.forEachEntries(new Consumer<Map.Entry<String, String>>() {
 
-  private void add0(int h, int i, final String name, final String value) {
-    // Update the hash table.
-    MapEntry e = entries[i];
-    MapEntry newEntry;
-    entries[i] = newEntry = new MapEntry(h, name, value);
-    newEntry.next = e;
+			@Override
+			public void accept(Entry<String, String> entry) {
+				add(entry.getKey(), entry.getValue());
+			}
+		});
+		return this;
+	}
 
-    // Update the linked list.
-    newEntry.addBefore(head);
-  }
+	@Override
+	public MultiMap add(Map<String, String> map) {
+		for (Map.Entry<String, String> entry : map.entrySet()) {
+			add(entry.getKey(), entry.getValue());
+		}
+		return this;
+	}
 
-  @Override
-  public MultiMap remove(final String name) {
-    if (name == null) {
-      throw new NullPointerException("name");
-    }
-    int h = hash(name);
-    int i = index(h);
-    remove0(h, i, name);
-    return this;
-  }
+	private void add0(int h, int i, final String name, final String value) {
+		// Update the hash table.
+		MapEntry e = entries[i];
+		MapEntry newEntry;
+		entries[i] = newEntry = new MapEntry(h, name, value);
+		newEntry.next = e;
 
-  private void remove0(int h, int i, String name) {
-    MapEntry e = entries[i];
-    if (e == null) {
-      return;
-    }
+		// Update the linked list.
+		newEntry.addBefore(head);
+	}
 
-    for (;;) {
-      if (e.hash == h && eq(name, e.key)) {
-        e.remove();
-        MapEntry next = e.next;
-        if (next != null) {
-          entries[i] = next;
-          e = next;
-        } else {
-          entries[i] = null;
-          return;
-        }
-      } else {
-        break;
-      }
-    }
+	@Override
+	public MultiMap remove(final String name) {
+		if (name == null) {
+			throw new NullPointerException("name");
+		}
+		int h = hash(name);
+		int i = index(h);
+		remove0(h, i, name);
+		return this;
+	}
 
-    for (;;) {
-      MapEntry next = e.next;
-      if (next == null) {
-        break;
-      }
-      if (next.hash == h && eq(name, next.key)) {
-        e.next = next.next;
-        next.remove();
-      } else {
-        e = next;
-      }
-    }
-  }
+	private void remove0(int h, int i, String name) {
+		MapEntry e = entries[i];
+		if (e == null) {
+			return;
+		}
 
-  @Override
-  public MultiMap set(final String name, final String strVal) {
-    int h = hash(name);
-    int i = index(h);
-    remove0(h, i, name);
-    add0(h, i, name, strVal);
-    return this;
-  }
+		for (;;) {
+			if (e.hash == h && eq(name, e.key)) {
+				e.remove();
+				MapEntry next = e.next;
+				if (next != null) {
+					entries[i] = next;
+					e = next;
+				} else {
+					entries[i] = null;
+					return;
+				}
+			} else {
+				break;
+			}
+		}
 
-  @Override
-  public MultiMap set(final String name, final Iterable<String> values) {
-    if (values == null) {
-      throw new NullPointerException("values");
-    }
+		for (;;) {
+			MapEntry next = e.next;
+			if (next == null) {
+				break;
+			}
+			if (next.hash == h && eq(name, next.key)) {
+				e.next = next.next;
+				next.remove();
+			} else {
+				e = next;
+			}
+		}
+	}
 
-    int h = hash(name);
-    int i = index(h);
+	@Override
+	public MultiMap set(final String name, final String strVal) {
+		int h = hash(name);
+		int i = index(h);
+		remove0(h, i, name);
+		add0(h, i, name, strVal);
+		return this;
+	}
 
-    remove0(h, i, name);
-    for (String v: values) {
-      if (v == null) {
-        break;
-      }
-      add0(h, i, name, v);
-    }
+	@Override
+	public MultiMap set(final String name, final Iterable<String> values) {
+		if (values == null) {
+			throw new NullPointerException("values");
+		}
 
-    return this;
-  }
+		int h = hash(name);
+		int i = index(h);
 
-  @Override
-  public MultiMap clear() {
-    for (int i = 0; i < entries.length; i ++) {
-      entries[i] = null;
-    }
-    head.before = head.after = head;
-    return this;
-  }
+		remove0(h, i, name);
+		for (String v : values) {
+			if (v == null) {
+				break;
+			}
+			add0(h, i, name, v);
+		}
 
-  @Override
-  public String get(final String name) {
-    if (name == null) {
-      throw new NullPointerException("name");
-    }
+		return this;
+	}
 
-    int h = hash(name);
-    int i = index(h);
-    MapEntry e = entries[i];
-    while (e != null) {
-      if (e.hash == h && eq(name, e.key)) {
-        return e.getValue();
-      }
+	@Override
+	public MultiMap clear() {
+		for (int i = 0; i < entries.length; i++) {
+			entries[i] = null;
+		}
+		head.before = head.after = head;
+		return this;
+	}
 
-      e = e.next;
-    }
-    return null;
-  }
+	@Override
+	public String get(final String name) {
+		if (name == null) {
+			throw new NullPointerException("name");
+		}
 
-  @Override
-  public List<String> getAll(final String name) {
-    if (name == null) {
-      throw new NullPointerException("name");
-    }
+		int h = hash(name);
+		int i = index(h);
+		MapEntry e = entries[i];
+		while (e != null) {
+			if (e.hash == h && eq(name, e.key)) {
+				return e.getValue();
+			}
 
-    LinkedList<String> values = new LinkedList<>();
+			e = e.next;
+		}
+		return null;
+	}
 
-    int h = hash(name);
-    int i = index(h);
-    MapEntry e = entries[i];
-    while (e != null) {
-      if (e.hash == h && eq(name, e.key)) {
-        values.addFirst(e.getValue());
-      }
-      e = e.next;
-    }
-    return values;
-  }
+	@Override
+	public List<String> getAll(final String name) {
+		if (name == null) {
+			throw new NullPointerException("name");
+		}
 
-  @Override
-  public List<Map.Entry<String, String>> entries() {
-    List<Map.Entry<String, String>> all =
-            new LinkedList<>();
+		LinkedList<String> values = new LinkedList<>();
 
-    MapEntry e = head.after;
-    while (e != head) {
-      all.add(e);
-      e = e.after;
-    }
-    return all;
-  }
+		int h = hash(name);
+		int i = index(h);
+		MapEntry e = entries[i];
+		while (e != null) {
+			if (e.hash == h && eq(name, e.key)) {
+				values.addFirst(e.getValue());
+			}
+			e = e.next;
+		}
+		return values;
+	}
 
-  @Override
-  public Iterator<Map.Entry<String, String>> iterator() {
-    return entries().iterator();
-  }
+	@Override
+	public List<Map.Entry<String, String>> entries() {
+		List<Map.Entry<String, String>> all = new LinkedList<>();
 
-  @Override
-  public boolean contains(String name) {
-    return get(name) != null;
-  }
+		MapEntry e = head.after;
+		while (e != head) {
+			all.add(e);
+			e = e.after;
+		}
+		return all;
+	}
 
-  @Override
-  public boolean isEmpty() {
-    return head == head.after;
-  }
+	@Override
+	public Iterator<Map.Entry<String, String>> iterator() {
+		return entries().iterator();
+	}
 
-  @Override
-  public Set<String> names() {
+	@Override
+	public boolean contains(String name) {
+		return get(name) != null;
+	}
 
-    Set<String> names = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+	@Override
+	public boolean isEmpty() {
+		return head == head.after;
+	}
 
-    MapEntry e = head.after;
-    while (e != head) {
-      names.add(e.getKey());
-      e = e.after;
-    }
-    return names;
-  }
+	@Override
+	public Set<String> names() {
 
-  @Override
-  public String get(CharSequence name) {
-    return get(name.toString());
-  }
+		Set<String> names = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
 
-  @Override
-  public List<String> getAll(CharSequence name) {
-    return getAll(name.toString());
-  }
+		MapEntry e = head.after;
+		while (e != head) {
+			names.add(e.getKey());
+			e = e.after;
+		}
+		return names;
+	}
 
-  @Override
-  public boolean contains(CharSequence name) {
-    return contains(name.toString());
-  }
+	@Override
+	public String get(CharSequence name) {
+		return get(name.toString());
+	}
 
-  @Override
-  public MultiMap add(CharSequence name, CharSequence value) {
-    return add(name.toString(), value.toString());
-  }
+	@Override
+	public List<String> getAll(CharSequence name) {
+		return getAll(name.toString());
+	}
 
-  @Override
-  public MultiMap add(CharSequence name, Iterable<CharSequence> values) {
-    String n = name.toString();
-    for (CharSequence seq: values) {
-      add(n, seq.toString());
-    }
-    return this;
-  }
+	@Override
+	public boolean contains(CharSequence name) {
+		return contains(name.toString());
+	}
 
-  @Override
-  public MultiMap set(CharSequence name, CharSequence value) {
-    return set(name.toString(), value.toString());
-  }
+	@Override
+	public MultiMap add(CharSequence name, CharSequence value) {
+		return add(name.toString(), value.toString());
+	}
 
-  @Override
-  public MultiMap set(CharSequence name, Iterable<CharSequence> values) {
-    remove(name);
-    String n = name.toString();
-    for (CharSequence seq: values) {
-      add(n, seq.toString());
-    }
-    return this;
-  }
+	@Override
+	public MultiMap add(CharSequence name, Iterable<CharSequence> values) {
+		String n = name.toString();
+		for (CharSequence seq : values) {
+			add(n, seq.toString());
+		}
+		return this;
+	}
 
-  @Override
-  public MultiMap remove(CharSequence name) {
-    return remove(name.toString());
-  }
+	@Override
+	public MultiMap set(CharSequence name, CharSequence value) {
+		return set(name.toString(), value.toString());
+	}
 
-  public String toString() {
-    StringBuilder sb = new StringBuilder();
-    for (Map.Entry<String, String> entry: this) {
-      sb.append(entry).append('\n');
-    }
-    return sb.toString();
-  }
+	@Override
+	public MultiMap set(CharSequence name, Iterable<CharSequence> values) {
+		remove(name);
+		String n = name.toString();
+		for (CharSequence seq : values) {
+			add(n, seq.toString());
+		}
+		return this;
+	}
 
-  private static final class MapEntry implements Map.Entry<String, String> {
-    final int hash;
-    final String key;
-    String value;
-    MapEntry next;
-    MapEntry before, after;
+	@Override
+	public MultiMap remove(CharSequence name) {
+		return remove(name.toString());
+	}
 
-    MapEntry(int hash, String key, String value) {
-      this.hash = hash;
-      this.key = key;
-      this.value = value;
-    }
+	public String toString() {
+		StringBuilder sb = new StringBuilder();
+		for (Map.Entry<String, String> entry : this) {
+			sb.append(entry).append('\n');
+		}
+		return sb.toString();
+	}
 
-    void remove() {
-      before.after = after;
-      after.before = before;
-    }
+	private static final class MapEntry implements Map.Entry<String, String> {
+		final int hash;
+		final String key;
+		String value;
+		MapEntry next;
+		MapEntry before, after;
 
-    void addBefore(MapEntry e) {
-      after  = e;
-      before = e.before;
-      before.after = this;
-      after.before = this;
-    }
+		MapEntry(int hash, String key, String value) {
+			this.hash = hash;
+			this.key = key;
+			this.value = value;
+		}
 
-    @Override
-    public String getKey() {
-      return key;
-    }
+		void remove() {
+			before.after = after;
+			after.before = before;
+		}
 
-    @Override
-    public String getValue() {
-      return value;
-    }
+		void addBefore(MapEntry e) {
+			after = e;
+			before = e.before;
+			before.after = this;
+			after.before = this;
+		}
 
-    @Override
-    public String setValue(String value) {
-      if (value == null) {
-        throw new NullPointerException("value");
-      }
-      String oldValue = this.value;
-      this.value = value;
-      return oldValue;
-    }
+		@Override
+		public String getKey() {
+			return key;
+		}
 
-    @Override
-    public String toString() {
-      return getKey() + ": " + getValue();
-    }
-  }
+		@Override
+		public String getValue() {
+			return value;
+		}
+
+		@Override
+		public String setValue(String value) {
+			if (value == null) {
+				throw new NullPointerException("value");
+			}
+			String oldValue = this.value;
+			this.value = value;
+			return oldValue;
+		}
+
+		@Override
+		public String toString() {
+			return getKey() + ": " + getValue();
+		}
+	}
 
 }
