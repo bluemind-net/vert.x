@@ -18,10 +18,10 @@ package org.vertx.java.core.impl;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.vertx.java.core.ChannelClasses;
 import org.vertx.java.core.impl.management.ManagementRegistry;
 
 import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
 
 /**
  * Util factory for creating vert.x thread pools
@@ -49,9 +49,7 @@ public class VertxExecutorFactory {
 	// The acceptor pools need to be fixed with a backing queue
 
 	public static EventLoopGroup eventLoopGroup(String poolName) {
-		NioEventLoopGroup ret = new NioEventLoopGroup(eventLoopSize(), new VertxThreadFactory(poolName));
-		ret.setIoRatio(100);
-		return ret;
+		return ChannelClasses.createLoopGroup(eventLoopSize(), poolName);
 	}
 
 	public static int eventLoopSize() {
