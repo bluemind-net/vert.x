@@ -101,7 +101,7 @@ public class TCPSSLHelper {
       bootstrap.childOption(ChannelOption.RCVBUF_ALLOCATOR, new FixedRecvByteBufAllocator(tcpReceiveBufferSize));
     }
 
-    bootstrap.option(ChannelOption.SO_LINGER, soLinger);
+    bootstrap.childOption(ChannelOption.SO_LINGER, soLinger);
     if (trafficClass != -1) {
       bootstrap.childOption(ChannelOption.IP_TOS, trafficClass);
     }
