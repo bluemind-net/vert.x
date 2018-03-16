@@ -21,13 +21,14 @@ import org.vertx.java.core.impl.VertxThreadFactory;
 
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.ServerChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 
 public final class ChannelClasses {
 
-	public static Class<? extends Channel> serverSocket() {
+	public static Class<? extends ServerChannel> serverSocket() {
 		return NioServerSocketChannel.class;
 	}
 
