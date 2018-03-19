@@ -23,10 +23,14 @@ import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.epoll.Epoll;
+import io.netty.channel.epoll.EpollDatagramChannel;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.epoll.EpollServerSocketChannel;
 import io.netty.channel.epoll.EpollSocketChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.DatagramChannel;
+import io.netty.channel.socket.InternetProtocolFamily;
+import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 
@@ -45,6 +49,32 @@ public final class ChannelClasses {
 			return EpollSocketChannel.class;
 		} else {
 			return NioSocketChannel.class;
+		}
+	}
+
+	public static Class<? extends DatagramChannel> datagramChannel() {
+		if (Epoll.isAvailable()) {
+			return EpollDatagramChannel.class;
+		} else {
+			return NioDatagramChannel.class;
+		}
+	}
+
+	public static DatagramChannel datagramSocket(org.vertx.java.core.datagram.InternetProtocolFamily family) {
+		if (Epoll.isAvailable()) {
+			return new EpollDatagramChannel();
+		} else {
+			if (family == null) {
+				return new NioDatagramChannel();
+			}
+			switch (family) {
+			case IPv4:
+				return new NioDatagramChannel(InternetProtocolFamily.IPv4);
+			case IPv6:
+				return new NioDatagramChannel(InternetProtocolFamily.IPv6);
+			default:
+				return new NioDatagramChannel();
+			}
 		}
 	}
 
