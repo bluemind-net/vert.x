@@ -16,15 +16,13 @@
 
 package org.vertx.java.core.net.impl;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.handler.ssl.SslHandler;
-import io.netty.util.CharsetUtil;
-import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
+import java.io.File;
+import java.net.InetSocketAddress;
+import java.nio.charset.Charset;
+import java.util.ArrayDeque;
+import java.util.Queue;
+import java.util.UUID;
+
 import org.vertx.java.core.AsyncResult;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.VoidHandler;
@@ -36,12 +34,15 @@ import org.vertx.java.core.impl.DefaultFutureResult;
 import org.vertx.java.core.impl.VertxInternal;
 import org.vertx.java.core.net.NetSocket;
 
-import java.io.File;
-import java.net.InetSocketAddress;
-import java.nio.charset.Charset;
-import java.util.ArrayDeque;
-import java.util.Queue;
-import java.util.UUID;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.handler.ssl.SslHandler;
+import io.netty.util.CharsetUtil;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 
 public class DefaultNetSocket extends ConnectionBase implements NetSocket {
 
@@ -56,7 +57,8 @@ public class DefaultNetSocket extends ConnectionBase implements NetSocket {
   private final TCPSSLHelper helper;
   private boolean client;
 
-  public DefaultNetSocket(VertxInternal vertx, Channel channel, DefaultContext context, TCPSSLHelper helper, boolean client) {
+  public DefaultNetSocket(VertxInternal vertx, Channel channel, DefaultContext context, TCPSSLHelper helper,
+      boolean client) {
     super(vertx, channel, context);
     this.helper = helper;
     this.client = client;
@@ -156,7 +158,7 @@ public class DefaultNetSocket extends ConnectionBase implements NetSocket {
     this.drainHandler = drainHandler;
     vertx.runOnContext(new VoidHandler() {
       public void handle() {
-        callDrainHandler(); //If the channel is already drained, we want to call it immediately
+        callDrainHandler(); // If the channel is already drained, we want to call it immediately
       }
     });
     return this;
@@ -180,7 +182,7 @@ public class DefaultNetSocket extends ConnectionBase implements NetSocket {
         public void operationComplete(ChannelFuture future) throws Exception {
           final AsyncResult<Void> res;
           if (future.isSuccess()) {
-            res = new DefaultFutureResult<>((Void)null);
+            res = new DefaultFutureResult<>((Void) null);
           } else {
             res = new DefaultFutureResult<>(future.cause());
           }
@@ -243,11 +245,11 @@ public class DefaultNetSocket extends ConnectionBase implements NetSocket {
       }
     }
     if (drainHandler != null) {
-        try {
-            drainHandler.handle(null);
-          } catch (Throwable t) {
-            handleHandlerException(t);
-          }
+      try {
+        drainHandler.handle(null);
+      } catch (Throwable t) {
+        handleHandlerException(t);
+      }
     }
     super.handleClosed();
     if (vertx.eventBus() != null) {
@@ -339,4 +341,3 @@ public class DefaultNetSocket extends ConnectionBase implements NetSocket {
     return channel.pipeline().get(SslHandler.class) != null;
   }
 }
-
