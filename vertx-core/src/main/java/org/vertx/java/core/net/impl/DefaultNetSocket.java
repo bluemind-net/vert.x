@@ -242,6 +242,13 @@ public class DefaultNetSocket extends ConnectionBase implements NetSocket {
         handleHandlerException(t);
       }
     }
+    if (drainHandler != null) {
+        try {
+            drainHandler.handle(null);
+          } catch (Throwable t) {
+            handleHandlerException(t);
+          }
+    }
     super.handleClosed();
     if (vertx.eventBus() != null) {
       vertx.eventBus().unregisterHandler(writeHandlerID, writeHandler);
