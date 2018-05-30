@@ -17,6 +17,8 @@
   */
 package org.vertx.java.core;
 
+import java.io.File;
+
 import org.vertx.java.core.impl.VertxThreadFactory;
 
 import io.netty.channel.Channel;
@@ -36,54 +38,58 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 
 public final class ChannelClasses {
 
-	public static Class<? extends ServerChannel> serverSocket() {
-		if (Epoll.isAvailable()) {
-			return EpollServerSocketChannel.class;
-		} else {
-			return NioServerSocketChannel.class;
-		}
-	}
+  private static boolean useEpoll() {
+    return Epoll.isAvailable() && !new File("/etc/bm/no.epoll").exists();
+  }
 
-	public static Class<? extends Channel> clientSocket() {
-		if (Epoll.isAvailable()) {
-			return EpollSocketChannel.class;
-		} else {
-			return NioSocketChannel.class;
-		}
-	}
+  public static Class<? extends ServerChannel> serverSocket() {
+    if (useEpoll()) {
+      return EpollServerSocketChannel.class;
+    } else {
+      return NioServerSocketChannel.class;
+    }
+  }
 
-	public static Class<? extends DatagramChannel> datagramChannel() {
-		if (Epoll.isAvailable()) {
-			return EpollDatagramChannel.class;
-		} else {
-			return NioDatagramChannel.class;
-		}
-	}
+  public static Class<? extends Channel> clientSocket() {
+    if (useEpoll()) {
+      return EpollSocketChannel.class;
+    } else {
+      return NioSocketChannel.class;
+    }
+  }
 
-	public static DatagramChannel datagramSocket(org.vertx.java.core.datagram.InternetProtocolFamily family) {
-		if (Epoll.isAvailable()) {
-			return new EpollDatagramChannel();
-		} else {
-			if (family == null) {
-				return new NioDatagramChannel();
-			}
-			switch (family) {
-			case IPv4:
-				return new NioDatagramChannel(InternetProtocolFamily.IPv4);
-			case IPv6:
-				return new NioDatagramChannel(InternetProtocolFamily.IPv6);
-			default:
-				return new NioDatagramChannel();
-			}
-		}
-	}
+  public static Class<? extends DatagramChannel> datagramChannel() {
+    if (useEpoll()) {
+      return EpollDatagramChannel.class;
+    } else {
+      return NioDatagramChannel.class;
+    }
+  }
 
-	public static EventLoopGroup createLoopGroup(int threads, String poolName) {
-		if (Epoll.isAvailable()) {
-			return new EpollEventLoopGroup(threads, new VertxThreadFactory(poolName));
-		} else {
-			return new NioEventLoopGroup(threads, new VertxThreadFactory(poolName));
-		}
-	}
+  public static DatagramChannel datagramSocket(org.vertx.java.core.datagram.InternetProtocolFamily family) {
+    if (useEpoll()) {
+      return new EpollDatagramChannel();
+    } else {
+      if (family == null) {
+        return new NioDatagramChannel();
+      }
+      switch (family) {
+      case IPv4:
+        return new NioDatagramChannel(InternetProtocolFamily.IPv4);
+      case IPv6:
+        return new NioDatagramChannel(InternetProtocolFamily.IPv6);
+      default:
+        return new NioDatagramChannel();
+      }
+    }
+  }
+
+  public static EventLoopGroup createLoopGroup(int threads, String poolName) {
+    if (useEpoll()) {
+      return new EpollEventLoopGroup(threads, new VertxThreadFactory(poolName));
+    } else {
+      return new NioEventLoopGroup(threads, new VertxThreadFactory(poolName));
+    }
+  }
 
 }
