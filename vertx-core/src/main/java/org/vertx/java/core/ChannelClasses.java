@@ -39,7 +39,7 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 public final class ChannelClasses {
 
   private static boolean useEpoll() {
-    return Epoll.isAvailable() && !new File("/etc/bm/no.epoll").exists();
+    return Epoll.isAvailable() && new File("/etc/bm/use.epoll").exists();
   }
 
   public static Class<? extends ServerChannel> serverSocket() {
