@@ -164,7 +164,9 @@ public class RecordParser implements Handler<Buffer> {
       buff = null;
       pos = 0;
     } else {
-      buff = buff.getBuffer(start, len);
+      if (start > 0) {
+	buff = buff.getBuffer(start, len);
+      }
       pos = buff.length();
     }
     start = 0;
