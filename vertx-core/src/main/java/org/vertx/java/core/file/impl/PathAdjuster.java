@@ -28,13 +28,6 @@ import java.nio.file.Paths;
 public class PathAdjuster {
 
   public static Path adjust(final VertxInternal vertx, Path path) {
-    DefaultContext context = vertx.getContext();
-    if (context != null) {
-      PathResolver resolver = context.getPathResolver();
-      if (resolver != null) {
-        return resolver.resolve(path);
-      }
-    }
     return path;
   }
 
