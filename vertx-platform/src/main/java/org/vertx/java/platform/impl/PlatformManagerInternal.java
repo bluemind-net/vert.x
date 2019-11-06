@@ -16,31 +16,27 @@
 
 package org.vertx.java.platform.impl;
 
-import org.vertx.java.core.AsyncResult;
-import org.vertx.java.core.Handler;
+import java.util.Map;
+
 import org.vertx.java.core.json.JsonObject;
 import org.vertx.java.core.logging.Logger;
 import org.vertx.java.platform.PlatformManager;
-
-import java.util.Map;
 
 /**
  * Internal interface - not designed to be publicly used
  */
 public interface PlatformManagerInternal extends PlatformManager {
 
-  JsonObject config();
+	JsonObject config();
 
-  Logger logger();
+	Logger logger();
 
-  void removeModule(String moduleKey);
+	void removeModule(String moduleKey);
 
-  void exit();
+	void exit();
 
-  int checkNoModules();
+	int checkNoModules();
 
-  Map<String, Deployment> deployments();
+	Map<String, Deployment> deployments();
 
-  void deployModuleInternal(String moduleName, JsonObject config,
-                            int instances, boolean ha, Handler<AsyncResult<String>> doneHandler);
 }
