@@ -16,26 +16,30 @@
 
 package org.vertx.java.platform;
 
-
 import org.vertx.java.core.Vertx;
 import org.vertx.java.core.logging.Logger;
 
 /**
- * Used by the platform manager to create Verticle instances.<p>
+ * Used by the platform manager to create Verticle instances.
+ * <p>
  *
- * Each language module implementation will provide an instance of this class and the platform will use it
- * to instantiate Verticle instances for that language.<p>
+ * Each language module implementation will provide an instance of this class
+ * and the platform will use it to instantiate Verticle instances for that
+ * language.
+ * <p>
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
 public interface VerticleFactory {
 
-  void init(Vertx vertx, Container container, ClassLoader cl);
+	void init(Vertx vertx, Container container, ClassLoader cl);
 
-  Verticle createVerticle(String main) throws Exception;
+	// Verticle createVerticle(String main) throws Exception;
 
-  void reportException(Logger logger, Throwable t);
+	Verticle createVerticle(VerticleConstructor ctor) throws Exception;
 
-  void close();
+	void reportException(Logger logger, Throwable t);
+
+	void close();
 
 }

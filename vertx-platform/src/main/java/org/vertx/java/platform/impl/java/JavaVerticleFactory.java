@@ -20,6 +20,7 @@ import org.vertx.java.core.Vertx;
 import org.vertx.java.core.logging.Logger;
 import org.vertx.java.platform.Container;
 import org.vertx.java.platform.Verticle;
+import org.vertx.java.platform.VerticleConstructor;
 import org.vertx.java.platform.VerticleFactory;
 
 /**
@@ -27,43 +28,52 @@ import org.vertx.java.platform.VerticleFactory;
  */
 public class JavaVerticleFactory implements VerticleFactory {
 
-  private ClassLoader cl;
-  private Vertx vertx;
-  private Container container;
+	private ClassLoader cl;
+	private Vertx vertx;
+	private Container container;
 
-  @Override
-  public void init(Vertx vertx, Container container, ClassLoader cl) {
-    this.cl = cl;
-    this.vertx = vertx;
-    this.container = container;
-  }
+	@Override
+	public void init(Vertx vertx, Container container, ClassLoader cl) {
+		this.cl = cl;
+		this.vertx = vertx;
+		this.container = container;
+	}
 
-  private static boolean isJavaSource(String main) {
-    return main.endsWith(".java");
-  }
+	private static boolean isJavaSource(String main) {
+		return false;
+	}
 
-  public Verticle createVerticle(String main) throws Exception {
-    String className = main;
-    Class<?> clazz;
-    if (isJavaSource(main)) {
-      // TODO - is this right???
-      // Don't we want one CompilingClassloader per instance of this?
-      CompilingClassLoader compilingLoader = new CompilingClassLoader(cl, main);
-      className = compilingLoader.resolveMainClassName();
-      clazz = compilingLoader.loadClass(className);
-    } else {
-      clazz = cl.loadClass(className);
-    }
-    Verticle verticle = (Verticle)clazz.newInstance();
-    verticle.setVertx(vertx);
-    verticle.setContainer(container);
-    return verticle;
-  }
-    
-  public void reportException(Logger logger, Throwable t) {
-    logger.error("Exception in Java verticle", t);
-  }
+	public Verticle createVerticle(String main) throws Exception {
+		String className = main;
+		Class<?> clazz;
+		if (isJavaSource(main)) {
+			// TODO - is this right???
+			// Don't we want one CompilingClassloader per instance of this?
+			CompilingClassLoader compilingLoader = new CompilingClassLoader(cl, main);
+			className = compilingLoader.resolveMainClassName();
+			clazz = compilingLoader.loadClass(className);
+		} else {
+			clazz = cl.loadClass(className);
+		}
+		Verticle verticle = (Verticle) clazz.newInstance();
+		verticle.setVertx(vertx);
+		verticle.setContainer(container);
+		return verticle;
+	}
 
-  public void close() {
-  }
+	@Override
+	public Verticle createVerticle(VerticleConstructor ctor) throws Exception {
+		Verticle verticle = ctor.newInstance();
+		verticle.setVertx(vertx);
+		verticle.setContainer(container);
+		return verticle;
+	}
+
+	public void reportException(Logger logger, Throwable t) {
+		logger.error("Exception in Java verticle", t);
+	}
+
+	public void close() {
+	}
+
 }
