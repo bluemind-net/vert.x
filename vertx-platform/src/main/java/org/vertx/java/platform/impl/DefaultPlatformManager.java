@@ -43,7 +43,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Properties;
 import java.util.Queue;
 import java.util.Scanner;
 import java.util.Set;
@@ -63,7 +62,6 @@ import org.vertx.java.core.AsyncResult;
 import org.vertx.java.core.AsyncResultHandler;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.Vertx;
-import org.vertx.java.core.buffer.Buffer;
 import org.vertx.java.core.eventbus.impl.DefaultEventBus;
 import org.vertx.java.core.file.impl.ClasspathPathResolver;
 import org.vertx.java.core.file.impl.ModuleFileSystemPathResolver;
@@ -99,10 +97,6 @@ public class DefaultPlatformManager implements PlatformManagerInternal {
 	private static final Logger log = LoggerFactory.getLogger(DefaultPlatformManager.class);
 	private static final int BUFFER_SIZE = 4096;
 	private static final String MODS_DIR_PROP_NAME = "vertx.mods";
-	private static final char COLON = ':';
-	private static final String LANG_IMPLS_SYS_PROP_ROOT = "vertx.langs.";
-	private static final String LANG_PROPS_FILE_NAME = "langs.properties";
-	private static final String DEFAULT_LANG_PROPS_FILE_NAME = "default-langs.properties";
 	private static final String REPOS_FILE_NAME = "repos.txt";
 	private static final String DEFAULT_REPOS_FILE_NAME = "default-repos.txt";
 	private static final String LOCAL_MODS_DIR = "mods";
@@ -110,7 +104,6 @@ public class DefaultPlatformManager implements PlatformManagerInternal {
 	private static final String VERTX_HOME_SYS_PROP = "vertx.home";
 	private static final String TEMP_DIR = System.getProperty("java.io.tmpdir");
 	private static final String FILE_SEP = System.getProperty("file.separator");
-	private static final String MODULE_NAME_SYS_PROP = System.getProperty("vertx.modulename");
 	private static final String CLASSPATH_FILE = "vertx_classpath.txt";
 	private static final String SERIALISE_BLOCKING_PROP_NAME = "vertx.serialiseBlockingActions";
 	private static final String MODULE_LINK_FILE = "module.link";
@@ -126,7 +119,6 @@ public class DefaultPlatformManager implements PlatformManagerInternal {
 	private final ConcurrentMap<String, ModuleReference> moduleRefs = new ConcurrentHashMap<>();
 	private final Map<String, LanguageImplInfo> languageImpls = new ConcurrentHashMap<>();
 	private final Map<String, String> extensionMappings = new ConcurrentHashMap<>();
-	private String defaultLanguageImplName;
 	private final List<RepoResolver> repos = new ArrayList<>();
 	private Handler<Void> exitHandler;
 	private ClassLoader platformClassLoader;
@@ -457,127 +449,8 @@ public class DefaultPlatformManager implements PlatformManagerInternal {
 		}
 	}
 
-	private String locateJar(String name, ClassLoader cl) {
-		if (cl instanceof URLClassLoader) {
-			URLClassLoader urlc = (URLClassLoader) cl;
-			for (URL url : urlc.getURLs()) {
-				String surl = url.toString();
-				if (surl.contains("/" + name)) { // The extra / is critical so we don't confuse hazelcast jar with
-													// vertx-hazelcast jar
-					String filename = url.getFile();
-					if (filename == null || "".equals(filename)) {
-						throw new IllegalStateException("Vert.x jars not available as file urls");
-					}
-					String correctedFileName;
-					try {
-						correctedFileName = new File(URLDecoder.decode(filename, "UTF-8")).getPath();
-					} catch (UnsupportedEncodingException e) {
-						throw new IllegalStateException(e);
-					}
-					return correctedFileName;
-				}
-			}
-		}
-		if (cl.getParent() != null) {
-			return locateJar(name, cl.getParent());
-		} else {
-			return null;
-		}
-	}
-
-	private String[] locateJars(ClassLoader cl, String... names) {
-		List<String> ljars = new ArrayList<>();
-		for (int i = 0; i < names.length; i++) {
-			String jar = locateJar(names[i], cl);
-			if (jar != null) {
-				ljars.add(jar);
-			}
-		}
-		return ljars.toArray(new String[ljars.size()]);
-	}
-
 	private void doMakeFatJar(File modRoot, ModuleIdentifier modID, String directory) {
-		File modDir = new File(modRoot, modID.toString());
-		if (!modDir.exists()) {
-			throw new PlatformManagerException("Cannot find module");
-		}
 
-		// We need to name the jars explicitly - we can't just grab every jar from the
-		// classloader hierarchy
-		String[] jars = locateJars(platformClassLoader, "vertx-core", "vertx-platform", "vertx-hazelcast", "netty-all",
-				"jackson-core", "jackson-annotations", "jackson-databind", "hazelcast");
-
-		if (directory == null) {
-			directory = ".";
-		}
-
-		String tdir = generateTmpFileName();
-		File vertxHome = new File(tdir);
-		File libDir = new File(vertxHome, "lib");
-		vertx.fileSystem().mkdirSync(libDir.getAbsolutePath(), true);
-		File modHome = new File(vertxHome, "mods");
-		File modDest = new File(modHome, modID.toString());
-		vertx.fileSystem().mkdirSync(modDest.getAbsolutePath(), true);
-
-		// Copy module in
-		vertx.fileSystem().copySync(modDir.getAbsolutePath(), modDest.getAbsolutePath(), true);
-
-		// Copy vert.x libs in
-		for (String jar : jars) {
-			Path path = Paths.get(jar);
-			String jarName = path.getFileName().toString();
-			vertx.fileSystem().copySync(jar, new File(libDir, jarName).getAbsolutePath());
-			if (jarName.startsWith("vertx-platform")) {
-				// Extract FatJarStarter and put it at the top of the executable jar - this is
-				// our main class
-				File fatClassDir = new File(vertxHome, "org/vertx/java/platform/impl");
-				vertx.fileSystem().mkdirSync(fatClassDir.getAbsolutePath(), true);
-				try {
-					FileInputStream fin = new FileInputStream(jar);
-					BufferedInputStream bin = new BufferedInputStream(fin);
-					ZipInputStream zin = new ZipInputStream(bin);
-					ZipEntry ze;
-					while ((ze = zin.getNextEntry()) != null) {
-						String entryName = ze.getName();
-						if (entryName.contains("FatJarStarter")) {
-							entryName = entryName.substring(entryName.lastIndexOf('/') + 1);
-							File fatClassFile = new File(fatClassDir, entryName);
-							OutputStream out = new FileOutputStream(fatClassFile);
-							byte[] buffer = new byte[4096];
-							int len;
-							while ((len = zin.read(buffer)) != -1) {
-								out.write(buffer, 0, len);
-							}
-							out.close();
-						}
-					}
-				} catch (Exception e) {
-					throw new PlatformManagerException(e);
-				}
-			}
-		}
-		// Now create a manifest
-		String manifest = "Manifest-Version: 1.0\n" + "Main-Class: " + FatJarStarter.class.getName() + "\n"
-				+ "Vertx-Module-ID: " + modID.toString() + "\n";
-		vertx.fileSystem().mkdirSync(new File(vertxHome, "META-INF").getAbsolutePath());
-		vertx.fileSystem().writeFileSync(new File(vertxHome, "META-INF/MANIFEST.MF").getAbsolutePath(),
-				new Buffer(manifest));
-
-		// Now zip it all up
-		File jarName = new File(directory, modID.getName() + "-" + modID.getVersion() + "-fat.jar");
-		zipDir(jarName.getPath(), vertxHome.getAbsolutePath());
-
-		// And delete temp dir
-		vertx.fileSystem().deleteSync(vertxHome.getAbsolutePath(), true);
-	}
-
-	private void zipDir(String zipFile, String dirToZip) {
-		File dir = new File(dirToZip);
-		try (ZipOutputStream out = new ZipOutputStream(new FileOutputStream(zipFile))) {
-			addDirToZip(dir, dir, out);
-		} catch (Exception e) {
-			throw new PlatformManagerException("Failed to unzip module", e);
-		}
 	}
 
 	void addDirToZip(File topDir, File dir, ZipOutputStream out) throws Exception {
@@ -669,25 +542,6 @@ public class DefaultPlatformManager implements PlatformManagerInternal {
 		return null; // We are at the top level already
 	}
 
-	// Get top-most module deployment for a deployment
-	private Deployment getTopMostDeployment(Deployment dep) {
-		Deployment topMostMod = dep;
-		while (true) {
-			String parentDep = dep.parentDeploymentName;
-			if (parentDep != null) {
-				dep = deployments.get(parentDep);
-				if (dep == null) {
-					throw new IllegalStateException("Cannot find deployment " + parentDep);
-				}
-				if (dep.modID != null) {
-					topMostMod = dep;
-				}
-			} else {
-				return topMostMod;
-			}
-		}
-	}
-
 	private ModuleReference getModuleReference(String moduleKey, URL[] urls, boolean loadFromModuleFirst) {
 		ModuleReference mr = moduleRefs.get(moduleKey);
 		if (mr == null) {
@@ -761,17 +615,6 @@ public class DefaultPlatformManager implements PlatformManagerInternal {
 		}
 	}
 
-	private InputStream findLangsFile() {
-		// First we look for langs.properties on the classpath
-		InputStream is = platformClassLoader.getResourceAsStream(LANG_PROPS_FILE_NAME);
-		if (is == null) {
-			// Now we look for default-langs.properties which is included in the
-			// vertx-platform.jar
-			is = platformClassLoader.getResourceAsStream(DEFAULT_LANG_PROPS_FILE_NAME);
-		}
-		return is;
-	}
-
 	private void loadLanguageMappings() {
 		// The only language that Vert.x understands out of the box is Java, so we add
 		// the default runtime and
@@ -779,88 +622,7 @@ public class DefaultPlatformManager implements PlatformManagerInternal {
 		languageImpls.put("java", new LanguageImplInfo(null, "org.vertx.java.platform.impl.java.JavaVerticleFactory"));
 		extensionMappings.put("java", "java");
 		extensionMappings.put("class", "java");
-		defaultLanguageImplName = "java";
 
-		/*
-		 * First try loading mappings from the LANG_PROPS_FILE_NAMEs file This file is
-		 * structured as follows: It should contain one line for every language
-		 * implementation that is to be used with Vert.x That line should be structured
-		 * as follows: <lang_impl_name>=[module_name:]<factory_name> Where:
-		 * <lang_impl_name> is the name you want to give to the language implementation,
-		 * e.g. 'jython' module_name is the (optional) name of a module that contains
-		 * the language implementation if ommitted it will be assumed the language
-		 * implementation is included as part of the Vert.x installation - this is only
-		 * true for the Java implementation if included the module_name should be
-		 * followed by a colon factory_name is the FQCN of a VerticleFactory for the
-		 * language implementation Examples:
-		 * rhino=vertx.lang-rhino-v1.0.0:org.vertx.java.platform.impl.rhino.
-		 * RhinoVerticleFactory
-		 * java=org.vertx.java.platform.impl.java.JavaVerticleFactory The file should
-		 * also contain one line for every extension mapping - this maps a file
-		 * extension to a <lang_impl_name> as specified above Examples: .js=rhino
-		 * .rb=jruby The file can also contain a line representing the default language
-		 * runtime to be used when no extension or prefix maps, e.g. .=java
-		 */
-
-		try (InputStream is = findLangsFile()) {
-			if (is != null) {
-				Properties props = new Properties();
-				props.load(new BufferedInputStream(is));
-				loadLanguageMappings(props);
-			}
-		} catch (IOException e) {
-			throw new PlatformManagerException(e);
-		}
-
-		// Then override any with system properties
-		Properties sysProps = new Properties();
-		Set<String> propertyNames = System.getProperties().stringPropertyNames();
-		for (String propertyName : propertyNames) {
-			if (propertyName.startsWith(LANG_IMPLS_SYS_PROP_ROOT)) {
-				String lang = propertyName.substring(LANG_IMPLS_SYS_PROP_ROOT.length());
-				String value = System.getProperty(propertyName);
-				sysProps.put(lang, value);
-			}
-		}
-		loadLanguageMappings(sysProps);
-	}
-
-	private void loadLanguageMappings(Properties props) {
-		Enumeration<?> en = props.propertyNames();
-		while (en.hasMoreElements()) {
-			String propName = (String) en.nextElement();
-			String propVal = props.getProperty(propName);
-			if (propName.startsWith(".")) {
-				// This is an extension mapping
-				if (propName.equals(".")) {
-					// The default mapping
-					defaultLanguageImplName = propVal;
-				} else {
-					propName = propName.substring(1);
-					extensionMappings.put(propName, propVal);
-				}
-			} else {
-				LanguageImplInfo langImpl = parseLangImplInfo(propVal);
-				languageImpls.put(propName, langImpl);
-				extensionMappings.put(propName, propName); // automatically register the name as a mapping
-			}
-		}
-	}
-
-	private LanguageImplInfo parseLangImplInfo(String line) {
-		// value is made up of an optional module name followed by colon followed by the
-		// FQCN of the factory
-		int colonIndex = line.lastIndexOf(COLON);
-		String moduleName;
-		String factoryName;
-		if (colonIndex != -1) {
-			moduleName = line.substring(0, colonIndex);
-			factoryName = line.substring(colonIndex + 1);
-		} else {
-			throw new PlatformManagerException(
-					"Language mapping: " + line + " does not specify an implementing module");
-		}
-		return new LanguageImplInfo(moduleName, factoryName);
 	}
 
 	private File locateModule(File modRoot, File currentModDir, ModuleIdentifier modID) {
@@ -888,14 +650,6 @@ public class DefaultPlatformManager implements PlatformManagerInternal {
 			}
 		}
 		return null;
-	}
-
-	private JsonObject loadModJSONFromClasspath(ModuleIdentifier modID, ClassLoader cl) {
-		URL url = cl.getResource(MOD_JSON_FILE);
-		if (url == null) {
-			return null;
-		}
-		return loadModJSONFromURL(modID, url);
 	}
 
 	private JsonObject loadModJSONFromURL(ModuleIdentifier modID, URL url) {
@@ -1404,9 +1158,6 @@ public class DefaultPlatformManager implements PlatformManagerInternal {
 
 		final VerticleFactory verticleFactory;
 
-		ClassLoader oldTCCL = Thread.currentThread().getContextClassLoader();
-		Thread.currentThread().setContextClassLoader(mr.mcl);
-
 		try {
 			verticleFactory = mr.getVerticleFactory(langImplInfo.factoryName, vertx, new DefaultContainer(this));
 		} catch (Throwable t) {
@@ -1432,48 +1183,44 @@ public class DefaultPlatformManager implements PlatformManagerInternal {
 
 		deployments.put(deploymentID, deployment);
 
-		try {
-			for (int i = 0; i < instances; i++) {
-				// Launch the verticle instance
-				Runnable runner = new Runnable() {
-					public void run() {
-						Verticle verticle;
-						try {
-							verticle = verticleFactory.createVerticle(theMain);
-						} catch (Throwable t) {
-							handleDeployFailure(t, deployment, aggHandler);
-							return;
-						}
-						try {
-							addVerticle(deployment, verticle, verticleFactory, modID, theMain.className());
-							setPathResolver(modDir);
-							DefaultFutureResult<Void> vr = new DefaultFutureResult<>();
-
-							verticle.start(vr);
-							vr.setHandler(new Handler<AsyncResult<Void>>() {
-								@Override
-								public void handle(AsyncResult<Void> ar) {
-									if (ar.succeeded()) {
-										aggHandler.complete();
-									} else {
-										handleDeployFailure(ar.cause(), deployment, aggHandler);
-									}
-								}
-							});
-						} catch (Throwable t) {
-							handleDeployFailure(t, deployment, aggHandler);
-						}
+		for (int i = 0; i < instances; i++) {
+			// Launch the verticle instance
+			Runnable runner = new Runnable() {
+				public void run() {
+					Verticle verticle;
+					try {
+						verticle = verticleFactory.createVerticle(theMain);
+					} catch (Throwable t) {
+						handleDeployFailure(t, deployment, aggHandler);
+						return;
 					}
-				};
+					try {
+						addVerticle(deployment, verticle, verticleFactory, modID, theMain.className());
+						setPathResolver(modDir);
+						DefaultFutureResult<Void> vr = new DefaultFutureResult<>();
 
-				if (worker) {
-					vertx.startInBackground(runner, multiThreaded);
-				} else {
-					vertx.startOnEventLoop(runner);
+						verticle.start(vr);
+						vr.setHandler(new Handler<AsyncResult<Void>>() {
+							@Override
+							public void handle(AsyncResult<Void> ar) {
+								if (ar.succeeded()) {
+									aggHandler.complete();
+								} else {
+									handleDeployFailure(ar.cause(), deployment, aggHandler);
+								}
+							}
+						});
+					} catch (Throwable t) {
+						handleDeployFailure(t, deployment, aggHandler);
+					}
 				}
+			};
+
+			if (worker) {
+				vertx.startInBackground(runner, multiThreaded);
+			} else {
+				vertx.startOnEventLoop(runner);
 			}
-		} finally {
-			Thread.currentThread().setContextClassLoader(oldTCCL);
 		}
 	}
 
@@ -1597,10 +1344,6 @@ public class DefaultPlatformManager implements PlatformManagerInternal {
 				}
 			}
 		});
-	}
-
-	private void addTmpDeployment(String tmp) {
-		tempDeployments.add(tmp);
 	}
 
 	private void deleteTmpDeployments() {
